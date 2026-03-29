@@ -46,7 +46,7 @@
     "next": ">=14.0.0"
   },
   "devDependencies": {
-    "@ai-sdk/anthropic": "^1.0.0",
+    "@ai-sdk/anthropic": "^3.0.64",
     "@types/node": "^22.0.0",
     "ai": "^4.0.0",
     "next": "^15.0.0",
