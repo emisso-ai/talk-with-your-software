@@ -2,6 +2,24 @@ name: Feature Request
 description: Suggest a new feature or improvement
 labels: ["enhancement"]
 body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have searched for [existing issues](https://github.com/emisso-ai/talk-with-your-software/issues)
+          required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      options:
+        - "@emisso/talk (engine)"
+        - "@emisso/talk-react (widget)"
+        - "@emisso/talk-next (adapter)"
+        - "New package"
+    validations:
+      required: true
   - type: textarea
     id: problem
     attributes:
@@ -13,15 +31,11 @@ body:
     id: solution
     attributes:
       label: Proposed solution
-      description: How would you like this to work?
+      description: How would you like this to work? Include API examples if possible.
     validations:
       required: true
-  - type: dropdown
-    id: package
+  - type: textarea
+    id: alternatives
     attributes:
-      label: Package
-      options:
-        - "@emisso/talk (engine)"
-        - "@emisso/talk-react (widget)"
-        - "@emisso/talk-next (adapter)"
-        - "New package"
+      label: Alternatives considered
+      description: Any workarounds or alternative approaches you've tried?

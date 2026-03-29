@@ -1,0 +1,7 @@
+# Default owner
+* @cdotte
+
+# Per-package
+/packages/engine/ @cdotte
+/packages/react/  @cdotte
+/packages/next/   @cdotte

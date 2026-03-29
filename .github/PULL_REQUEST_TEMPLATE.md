@@ -1,6 +1,8 @@
 ## Summary
 
-<!-- What does this PR do? Why? -->
+<!-- What does this PR do and why? Link to the issue if applicable. -->
+
+Fixes #
 
 ## Changes
 
@@ -8,8 +10,15 @@
 
 -
 
+## How to test
+
+<!-- Steps to verify the changes work end-to-end -->
+
+1.
+
 ## Checklist
 
+- [ ] I have reviewed my own code
 - [ ] `pnpm build` passes
 - [ ] `pnpm lint` passes
 - [ ] `pnpm test:run` passes

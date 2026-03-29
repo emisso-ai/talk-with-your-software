@@ -1,0 +1,43 @@
+# @emisso/talk
+
+> Talk with your Software — embeddable AI chatbox powered by Claude Code + Vercel Sandbox.
+
+- Repo: https://github.com/emisso-ai/talk-with-your-software
+- License: MIT
+
+## Install
+
+pnpm add @emisso/talk-next @emisso/talk-react @ai-sdk/anthropic ai
+
+## Docs
+
+- [README](https://github.com/emisso-ai/talk-with-your-software/blob/main/README.md)
+- [AGENTS.md](https://github.com/emisso-ai/talk-with-your-software/blob/main/AGENTS.md)
+- [CONTRIBUTING](https://github.com/emisso-ai/talk-with-your-software/blob/main/CONTRIBUTING.md)
+
+## Packages
+
+- @emisso/talk — Core engine (sandbox, classifier, Claude provider, skills)
+- @emisso/talk-react — React chat widget (floating launcher, Framer Motion animations)
+- @emisso/talk-next — Next.js App Router adapter (createTalkRouter)
+
+## How it works
+
+User asks a question. The engine classifies it (code_lookup, architecture, flow_trace, capability_check, implementation_how, troubleshoot, general_product), spins up a Vercel Sandbox microVM, clones the repo, runs Claude Code (Haiku by default) with Read/Grep/Glob/Bash tools, and returns a structured answer with code snippets and file references.
+
+No RAG. No embeddings. No vector database. Claude reads the actual source code every time.
+
+## API
+
+- `createTalkRouter(config)` — Next.js POST handler. Config: anthropicApiKey, repo, githubToken, model?, maxTurns?, systemPrompt?
+- `<TalkWidget endpoint appName? primaryColor? position? greeting? placeholder? launcherIcon? />` — React component
+- `navigate(config, request)` — Direct engine call. Returns TalkResult with answer, codeSnippets, filesExplored, costUsd
+- `classifyQuery(query, apiKey)` — Classify a question into a QueryCategory
+- `estimateCost(model, tokenUsage)` — Estimate USD cost from token counts
+
+## Requirements
+
+- Node.js >= 18
+- Anthropic API key
+- GitHub personal access token
+- Vercel deployment (for Sandbox microVMs)
