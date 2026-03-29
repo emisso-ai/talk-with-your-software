@@ -48,7 +48,7 @@
   "devDependencies": {
     "@ai-sdk/anthropic": "^1.0.0",
     "@types/node": "^22.0.0",
-    "ai": "^4.0.0",
+    "ai": "^6.0.141",
     "next": "^15.0.0",
     "tsup": "^8.3.0",
     "typescript": "^5.7.0"
