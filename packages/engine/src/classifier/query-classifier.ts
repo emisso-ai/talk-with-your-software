@@ -1,28 +1,10 @@
 import { generateObject } from "ai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
-import type { QueryCategory, QueryClassification } from "../types";
-
-const CATEGORIES: QueryCategory[] = [
-  "code_lookup",
-  "capability_check",
-  "architecture",
-  "implementation_how",
-  "flow_trace",
-  "troubleshoot",
-  "general_product",
-];
+import { QUERY_CATEGORIES, DEFAULT_MODEL, type QueryClassification } from "../types";
 
 const classificationSchema = z.object({
-  category: z.enum([
-    "code_lookup",
-    "capability_check",
-    "architecture",
-    "implementation_how",
-    "flow_trace",
-    "troubleshoot",
-    "general_product",
-  ]),
+  category: z.enum(QUERY_CATEGORIES),
   confidence: z.number().min(0).max(1),
   reasoning: z.string(),
   entities: z.object({
@@ -60,7 +42,7 @@ export async function classifyQuery(
     const anthropic = createAnthropic({ apiKey: anthropicApiKey });
 
     const { object } = await generateObject({
-      model: anthropic("claude-haiku-4-5-20251001"),
+      model: anthropic(DEFAULT_MODEL),
       schema: classificationSchema,
       system: SYSTEM_PROMPT,
       prompt: query,

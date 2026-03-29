@@ -2,11 +2,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
 
 export interface ChatContainerProps {
-  appName: string;
   isOpen: boolean;
-  onClose: () => void;
   position: "bottom-right" | "bottom-left";
-  primaryColor: string;
   children: ReactNode;
 }
 

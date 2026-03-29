@@ -6,58 +6,56 @@ import type {
   TokenUsage,
   CodeSnippet,
 } from "../types";
+import { DEFAULT_MODEL, estimateCost } from "../types";
+import { getSkillFilesForCategory } from "../skills/index";
 
-// ============================================================================
-// CATEGORY GUIDANCE
-// ============================================================================
+const INVESTIGATE_FIRST =
+  "IMPORTANT: You MUST search and read the actual source code before answering. " +
+  "Never answer from memory or the instruction file alone. " +
+  "Use Grep, Glob, and Read tools to find the relevant code, then base your answer on what you find.";
 
 const CATEGORY_GUIDANCE: Record<QueryCategory, string> = {
-  code_lookup: `INVESTIGATE FIRST: Always search the codebase before answering. Never answer from memory.
+  code_lookup: `${INVESTIGATE_FIRST}
 Find the exact file, function, or definition the user is asking about.
-Use Glob to locate files by name, Grep to search content, and Read to show the code.
 Return the precise file path and relevant code snippet.
-If a skill file is present at /vercel/sandbox/skill.md, follow its instructions.`,
+For the full methodology, read .skills/find-usages.md`,
 
-  capability_check: `INVESTIGATE FIRST: Always search the codebase before answering. Never answer from memory.
+  capability_check: `${INVESTIGATE_FIRST}
 Determine whether the codebase supports the capability in question.
 Search for relevant keywords, feature flags, config, and implementations.
-Provide a definitive yes/no with evidence from the code.
-If a skill file is present at /vercel/sandbox/skill.md, follow its instructions.`,
+Provide a definitive YES/PARTIAL/NO verdict with evidence.
+For the full methodology, read .skills/capability-check.md`,
 
-  architecture: `INVESTIGATE FIRST: Always search the codebase before answering. Never answer from memory.
+  architecture: `${INVESTIGATE_FIRST}
 Analyze the project structure, dependencies, and how components connect.
 Examine package.json, config files, directory layout, and key modules.
 Describe the architecture with references to specific files and patterns.
-If a skill file is present at /vercel/sandbox/skill.md, follow its instructions.`,
+For the full methodology, read .skills/explain-code.md`,
 
-  implementation_how: `INVESTIGATE FIRST: Always search the codebase before answering. Never answer from memory.
+  implementation_how: `${INVESTIGATE_FIRST}
 Trace how a specific feature is implemented across the codebase.
 Follow the code path from entry point through business logic to data layer.
 Reference specific files, functions, and types involved.
-If a skill file is present at /vercel/sandbox/skill.md, follow its instructions.`,
+For the full methodology, read .skills/explain-code.md`,
 
-  flow_trace: `INVESTIGATE FIRST: Always search the codebase before answering. Never answer from memory.
+  flow_trace: `${INVESTIGATE_FIRST}
 Trace the complete execution flow across multiple files and layers.
 Start from the entry point and follow every call, handler, and data transformation.
 Map out the full chain with file paths and function names at each step.
-If a skill file is present at /vercel/sandbox/skill.md, follow its instructions.`,
+For the full methodology, read .skills/explain-code.md`,
 
-  troubleshoot: `INVESTIGATE FIRST: Always search the codebase before answering. Never answer from memory.
+  troubleshoot: `${INVESTIGATE_FIRST}
 Investigate potential causes for the bug, error, or unexpected behavior.
 Search for error handling, edge cases, and related code paths.
 Suggest specific fixes with file paths and line references.
-If a skill file is present at /vercel/sandbox/skill.md, follow its instructions.`,
+For the full methodology, read .skills/troubleshoot.md`,
 
-  general_product: `INVESTIGATE FIRST: Always search the codebase before answering. Never answer from memory.
+  general_product: `${INVESTIGATE_FIRST}
 Answer high-level product questions by examining README, docs, and config files.
 Look at package.json, landing pages, and onboarding flows for product context.
 Ground every claim in actual code or documentation found in the repo.
-If a skill file is present at /vercel/sandbox/skill.md, follow its instructions.`,
+For the full methodology, read .skills/product-usage.md`,
 };
-
-// ============================================================================
-// INSTALL
-// ============================================================================
 
 export async function installClaudeCode(sandbox: SandboxHandle): Promise<void> {
   const result = await sandbox.runCommand({
@@ -71,10 +69,6 @@ export async function installClaudeCode(sandbox: SandboxHandle): Promise<void> {
     throw new Error(`Failed to install Claude Code: ${stderr.substring(0, 500)}`);
   }
 }
-
-// ============================================================================
-// EXECUTE
-// ============================================================================
 
 const ALLOWED_TOOLS = [
   "Read",
@@ -99,14 +93,16 @@ function buildSystemPrompt(
   }
 
   if (parts.length === 0) {
-    parts.push(
-      "INVESTIGATE FIRST: Always search the codebase before answering. Never answer from memory.",
-    );
+    parts.push(INVESTIGATE_FIRST);
   }
 
   return parts.join("\n\n");
 }
 
+/**
+ * Build the runner.mjs script that executes Claude Code in the sandbox.
+ * Uses JSON.stringify for safe string embedding (no template literal injection).
+ */
 function buildRunnerScript(
   query: string,
   model: string,
@@ -114,30 +110,23 @@ function buildRunnerScript(
   systemPrompt: string,
   cwd: string,
 ): string {
-  // Escape backticks and backslashes for template literal embedding
-  const escapedQuery = query.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$/g, "\\$");
-  const escapedSystem = systemPrompt
-    .replace(/\\/g, "\\\\")
-    .replace(/`/g, "\\`")
-    .replace(/\$/g, "\\$");
-
   return `import { execFileSync } from "node:child_process";
 
-const query = \`${escapedQuery}\`;
-const systemPrompt = \`${escapedSystem}\`;
+const query = ${JSON.stringify(query)};
+const systemPrompt = ${JSON.stringify(systemPrompt)};
 
 try {
   const result = execFileSync("claude", [
     "--print",
     "--output-format", "json",
-    "--model", "${model}",
-    "--max-turns", "${maxTurns}",
+    "--model", ${JSON.stringify(model)},
+    "--max-turns", ${JSON.stringify(String(maxTurns))},
     "--dangerously-skip-permissions",
-    "--allowedTools", "${ALLOWED_TOOLS}",
+    "--allowedTools", ${JSON.stringify(ALLOWED_TOOLS)},
     "--system-prompt", systemPrompt,
     query,
   ], {
-    cwd: "${cwd}",
+    cwd: ${JSON.stringify(cwd)},
     encoding: "utf-8",
     maxBuffer: 10 * 1024 * 1024,
     timeout: 300_000,
@@ -153,7 +142,7 @@ try {
 `;
 }
 
-function parseClaudeOutput(raw: string): {
+function parseClaudeOutput(raw: string, model: string): {
   answer: string;
   codeSnippets: CodeSnippet[];
   filesExplored: string[];
@@ -163,7 +152,6 @@ function parseClaudeOutput(raw: string): {
   try {
     const parsed = JSON.parse(raw);
 
-    // Claude --output-format json returns { result, usage, ... }
     const answer = typeof parsed.result === "string" ? parsed.result : raw;
 
     const tokenUsage: TokenUsage | undefined = parsed.usage
@@ -175,7 +163,6 @@ function parseClaudeOutput(raw: string): {
         }
       : undefined;
 
-    // Extract file paths from the answer (lines that look like file paths)
     const filePathPattern = /(?:^|\s)((?:\/|\.\/|src\/|packages\/)[^\s:]+\.[a-zA-Z]{1,6})/gm;
     const filesExplored: string[] = [];
     let match: RegExpExecArray | null;
@@ -186,7 +173,6 @@ function parseClaudeOutput(raw: string): {
       }
     }
 
-    // Extract code snippets from markdown code blocks
     const codeSnippets: CodeSnippet[] = [];
     const codeBlockPattern = /```[\w]*\n([\s\S]*?)```/g;
     let blockMatch: RegExpExecArray | null;
@@ -197,18 +183,10 @@ function parseClaudeOutput(raw: string): {
       });
     }
 
-    // Estimate cost from token usage
-    let costUsd = 0;
-    if (tokenUsage) {
-      // Use Haiku pricing as default estimate
-      costUsd =
-        (tokenUsage.inputTokens * 0.8) / 1_000_000 +
-        (tokenUsage.outputTokens * 4.0) / 1_000_000;
-    }
+    const costUsd = tokenUsage ? estimateCost(model, tokenUsage) : 0;
 
     return { answer, codeSnippets, filesExplored, tokenUsage, costUsd };
   } catch {
-    // If not valid JSON, treat the raw output as the answer
     return {
       answer: raw,
       codeSnippets: [],
@@ -226,10 +204,10 @@ export async function executeClaudeCode(
   queryCategory?: QueryCategory,
 ): Promise<TalkResult> {
   const startTime = Date.now();
-  const model = config.model ?? "claude-haiku-4-5-20251001";
+  const model = config.model ?? DEFAULT_MODEL;
   const maxTurns = config.maxTurns ?? 20;
 
-  // 1. Write instruction file (CLAUDE.md) if provided
+  // Write instruction file (CLAUDE.md) if provided
   if (config.instructionFileContent) {
     await sandbox.writeFiles([
       {
@@ -239,10 +217,19 @@ export async function executeClaudeCode(
     ]);
   }
 
-  // 2. Build system prompt
+  // Write skill files for the query category
+  if (queryCategory) {
+    const skillFiles = getSkillFilesForCategory(queryCategory).map((f) => ({
+      path: `${cwd}/${f.path}`,
+      content: f.content,
+    }));
+    if (skillFiles.length > 0) {
+      await sandbox.writeFiles(skillFiles);
+    }
+  }
+
   const systemPrompt = buildSystemPrompt(queryCategory, config.systemPrompt);
 
-  // 3. Build and write runner script
   const runnerScript = buildRunnerScript(query, model, maxTurns, systemPrompt, cwd);
   await sandbox.writeFiles([
     {
@@ -251,7 +238,6 @@ export async function executeClaudeCode(
     },
   ]);
 
-  // 4. Execute runner
   const result = await sandbox.runCommand({
     cmd: "node",
     args: ["/vercel/sandbox/runner.mjs"],
@@ -284,7 +270,7 @@ export async function executeClaudeCode(
   }
 
   const stdout = await result.stdout();
-  const parsed = parseClaudeOutput(stdout);
+  const parsed = parseClaudeOutput(stdout, model);
 
   return {
     success: true,

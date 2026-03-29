@@ -56,7 +56,9 @@ export async function cloneRepo(
 
   if (cloneResult.exitCode !== 0) {
     const stderr = await cloneResult.stderr();
-    throw new Error(`Clone failed for ${repo}: ${stderr.substring(0, 500)}`);
+    // Redact token from error output to prevent leaking credentials
+    const safeStderr = stderr.substring(0, 500).replace(/x-access-token:[^@]+@/g, "x-access-token:***@");
+    throw new Error(`Clone failed for ${repo}: ${safeStderr}`);
   }
 
   return cwd;

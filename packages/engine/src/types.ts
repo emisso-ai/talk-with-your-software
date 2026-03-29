@@ -6,34 +6,19 @@
 
 import { z } from "zod";
 
-// ============================================================================
-// QUERY CATEGORIES
-// ============================================================================
+export const QUERY_CATEGORIES = [
+  "code_lookup",
+  "capability_check",
+  "architecture",
+  "implementation_how",
+  "flow_trace",
+  "troubleshoot",
+  "general_product",
+] as const;
 
-export type QueryCategory =
-  | "code_lookup"
-  | "capability_check"
-  | "architecture"
-  | "implementation_how"
-  | "flow_trace"
-  | "troubleshoot"
-  | "general_product";
+export type QueryCategory = (typeof QUERY_CATEGORIES)[number];
 
-export type QueryComplexity = "simple" | "moderate" | "complex";
-
-export const CATEGORY_COMPLEXITY: Record<QueryCategory, QueryComplexity> = {
-  code_lookup: "simple",
-  capability_check: "moderate",
-  architecture: "moderate",
-  implementation_how: "moderate",
-  flow_trace: "complex",
-  troubleshoot: "moderate",
-  general_product: "moderate",
-};
-
-// ============================================================================
-// CONFIGURATION
-// ============================================================================
+export const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 
 export const talkConfigSchema = z.object({
   /** Anthropic API key for Claude Code execution. */
@@ -46,7 +31,7 @@ export const talkConfigSchema = z.object({
   githubToken: z.string().min(1),
 
   /** Claude model to use. Defaults to Haiku for cost efficiency. */
-  model: z.string().default("claude-haiku-4-5-20251001"),
+  model: z.string().default(DEFAULT_MODEL),
 
   /** Maximum CLI agent turns per query. Higher = deeper exploration + more cost. */
   maxTurns: z.number().int().min(1).max(100).default(20),
@@ -227,3 +212,11 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     cacheCreationPerMillionTokens: 1.0,
   },
 };
+
+/** Estimate cost from token usage using the MODEL_PRICING table. */
+export function estimateCost(model: string, usage: TokenUsage): number {
+  const pricing = MODEL_PRICING[model] ?? MODEL_PRICING[DEFAULT_MODEL];
+  const inputCost = (usage.inputTokens / 1_000_000) * pricing.inputPerMillionTokens;
+  const outputCost = (usage.outputTokens / 1_000_000) * pricing.outputPerMillionTokens;
+  return Math.round((inputCost + outputCost) * 1_000_000) / 1_000_000;
+}

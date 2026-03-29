@@ -56,11 +56,8 @@ function TalkWidgetInner({
   return (
     <div className="talk-widget">
       <ChatContainer
-        appName={appName}
         isOpen={isOpen}
-        onClose={close}
         position={position}
-        primaryColor={primaryColor}
       >
         <ChatHeader
           appName={appName}

@@ -21,14 +21,13 @@ export function ChatMessages({
   const containerRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
 
-  // Instant scroll on mount
   useLayoutEffect(() => {
     if (containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
   }, []);
 
-  // Smooth scroll on new messages
+  // Scroll on new messages (by count, not by content — avoids per-chunk scroll)
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
@@ -40,7 +39,7 @@ export function ChatMessages({
         behavior: "smooth",
       });
     }
-  }, [messages.length, messages[messages.length - 1]?.content]);
+  }, [messages.length]);
 
   return (
     <div

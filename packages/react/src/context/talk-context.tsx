@@ -1,6 +1,7 @@
 import {
   createContext,
   useCallback,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -24,7 +25,6 @@ export interface TalkWidgetState {
   isOpen: boolean;
   messages: TalkMessage[];
   isStreaming: boolean;
-  error: string | null;
 }
 
 export interface TalkContextValue extends TalkWidgetState {
@@ -41,14 +41,17 @@ function generateId(): string {
   return `talk-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+/** Extract code snippets from markdown code blocks. */
+const CODE_BLOCK_REGEX = /```(\S+)?\n([\s\S]*?)```/g;
+
 function parseCodeSnippets(
   content: string
 ): TalkMessage["codeSnippets"] | undefined {
-  const codeBlockRegex = /```(\S+)?\n([\s\S]*?)```/g;
   const snippets: NonNullable<TalkMessage["codeSnippets"]> = [];
   let match: RegExpExecArray | null;
 
-  while ((match = codeBlockRegex.exec(content)) !== null) {
+  CODE_BLOCK_REGEX.lastIndex = 0;
+  while ((match = CODE_BLOCK_REGEX.exec(content)) !== null) {
     const filePath = match[1] ?? "code";
     const codeContent = match[2] ?? "";
     snippets.push({ filePath, content: codeContent.trimEnd() });
@@ -74,7 +77,6 @@ export function TalkProvider({
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<TalkMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const open = useCallback(() => {
@@ -104,7 +106,7 @@ export function TalkProvider({
         id: generateId(),
         role: "user",
         content: text.trim(),
-        status: "sending",
+        status: "sent",
         timestamp: new Date(),
       };
 
@@ -119,12 +121,6 @@ export function TalkProvider({
 
       setMessages((prev) => [...prev, userMessage, assistantMessage]);
       setIsStreaming(true);
-      setError(null);
-
-      // Mark user message as sent
-      setMessages((prev) =>
-        prev.map((m) => (m.id === userMessage.id ? { ...m, status: "sent" } : m))
-      );
 
       abortRef.current = new AbortController();
 
@@ -140,32 +136,17 @@ export function TalkProvider({
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        const reader = response.body?.getReader();
-        if (!reader) throw new Error("No response body");
+        // Server returns JSON (not SSE) with a TalkResult
+        const result = await response.json();
 
-        const decoder = new TextDecoder();
-        let accumulated = "";
+        const content = result.success ? result.answer : (result.error?.message ?? "Something went wrong");
+        const status = result.success ? "sent" : "error";
+        const codeSnippets = result.success ? parseCodeSnippets(content) : undefined;
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          accumulated += chunk;
-
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, content: accumulated } : m
-            )
-          );
-        }
-
-        // Finalize the assistant message
-        const codeSnippets = parseCodeSnippets(accumulated);
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
-              ? { ...m, status: "sent", content: accumulated, codeSnippets }
+              ? { ...m, status, content, codeSnippets }
               : m
           )
         );
@@ -174,11 +155,10 @@ export function TalkProvider({
 
         const errorMessage =
           err instanceof Error ? err.message : "Something went wrong";
-        setError(errorMessage);
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
-              ? { ...m, status: "error", content: errorMessage }
+              ? { ...m, status: "error" as const, content: errorMessage }
               : m
           )
         );
@@ -192,52 +172,51 @@ export function TalkProvider({
 
   const retry = useCallback(
     (messageId: string) => {
-      const messageIndex = messages.findIndex((m) => m.id === messageId);
-      if (messageIndex < 0) return;
+      // Use functional state update to avoid stale closure over messages
+      setMessages((prev) => {
+        const messageIndex = prev.findIndex((m) => m.id === messageId);
+        if (messageIndex < 0) return prev;
 
-      // Find the user message before the errored assistant message
-      const errored = messages[messageIndex];
-      if (!errored) return;
+        const errored = prev[messageIndex];
+        let userText: string | undefined;
 
-      let userText: string | undefined;
-      if (errored.role === "assistant" && messageIndex > 0) {
-        userText = messages[messageIndex - 1]?.content;
-        // Remove the errored assistant message
-        setMessages((prev) => prev.filter((m) => m.id !== messageId));
-      } else if (errored.role === "user") {
-        userText = errored.content;
-      }
+        if (errored.role === "assistant" && messageIndex > 0) {
+          userText = prev[messageIndex - 1]?.content;
+        } else if (errored.role === "user") {
+          userText = errored.content;
+        }
 
-      if (userText) {
-        // Remove the errored messages and resend
-        setMessages((prev) =>
-          prev.filter(
-            (m) =>
-              m.id !== messageId &&
-              !(
-                errored.role === "assistant" &&
-                messageIndex > 0 &&
-                m.id === messages[messageIndex - 1]?.id
-              )
-          )
-        );
-        void sendMessage(userText);
-      }
+        if (!userText) return prev;
+
+        // Remove errored messages (assistant + its preceding user message)
+        const idsToRemove = new Set<string>();
+        idsToRemove.add(messageId);
+        if (errored.role === "assistant" && messageIndex > 0) {
+          idsToRemove.add(prev[messageIndex - 1].id);
+        }
+
+        // Schedule resend after state update
+        setTimeout(() => void sendMessage(userText!), 0);
+
+        return prev.filter((m) => !idsToRemove.has(m.id));
+      });
     },
-    [messages, sendMessage]
+    [sendMessage]
   );
 
-  const value: TalkContextValue = {
-    isOpen,
-    messages,
-    isStreaming,
-    error,
-    sendMessage,
-    toggleOpen,
-    open,
-    close,
-    retry,
-  };
+  const value = useMemo<TalkContextValue>(
+    () => ({
+      isOpen,
+      messages,
+      isStreaming,
+      sendMessage,
+      toggleOpen,
+      open,
+      close,
+      retry,
+    }),
+    [isOpen, messages, isStreaming, sendMessage, toggleOpen, open, close, retry]
+  );
 
   return <TalkContext.Provider value={value}>{children}</TalkContext.Provider>;
 }

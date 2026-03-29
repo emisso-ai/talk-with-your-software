@@ -1,4 +1,4 @@
-import type { TalkConfig, TalkRequest, TalkResult } from "./types";
+import { DEFAULT_MODEL, type TalkConfig, type TalkRequest, type TalkResult } from "./types";
 import { classifyQuery } from "./classifier/query-classifier";
 import { createSandbox, cloneRepo } from "./sandbox/sandbox-service";
 import { installClaudeCode, executeClaudeCode } from "./providers/claude-provider";
@@ -8,21 +8,18 @@ export async function navigate(config: TalkConfig, request: TalkRequest): Promis
   let sandbox;
 
   try {
-    // 1. Classify query (unless category provided)
-    const classification = request.queryCategory
-      ? { category: request.queryCategory, confidence: 1, reasoning: "manual", entities: {} }
-      : await classifyQuery(request.query, config.anthropicApiKey);
+    // Run classification and sandbox creation in parallel (they are independent)
+    const [classification, createdSandbox] = await Promise.all([
+      request.queryCategory
+        ? Promise.resolve({ category: request.queryCategory, confidence: 1, reasoning: "manual", entities: {} })
+        : classifyQuery(request.query, config.anthropicApiKey),
+      createSandbox(config),
+    ]);
 
-    // 2. Create sandbox
-    sandbox = await createSandbox(config);
+    sandbox = createdSandbox;
 
-    // 3. Clone repo
     const cwd = await cloneRepo(sandbox, config.repo, config.githubToken, config.revision);
-
-    // 4. Install Claude Code
     await installClaudeCode(sandbox);
-
-    // 5. Execute
     const result = await executeClaudeCode(sandbox, config, request.query, cwd, classification.category);
 
     return {
@@ -38,7 +35,7 @@ export async function navigate(config: TalkConfig, request: TalkRequest): Promis
       filesExplored: [],
       costUsd: 0,
       durationMs: Date.now() - startTime,
-      model: config.model ?? "claude-haiku-4-5-20251001",
+      model: config.model ?? DEFAULT_MODEL,
       sandboxId: sandbox?.sandboxId,
       error: {
         code: "NAVIGATION_FAILED",
@@ -47,7 +44,6 @@ export async function navigate(config: TalkConfig, request: TalkRequest): Promis
       },
     };
   } finally {
-    // Always stop sandbox
     if (sandbox) {
       await sandbox.stop().catch(() => {});
     }
