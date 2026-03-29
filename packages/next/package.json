@@ -1,0 +1,56 @@
+{
+  "name": "@emisso/talk-next",
+  "version": "0.1.0",
+  "description": "Next.js API route adapter for Talk with your Software ��� createTalkRouter() for App Router",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "nextjs",
+    "api-route",
+    "chat",
+    "claude",
+    "talk-with-your-software",
+    "emisso"
+  ],
+  "author": "Emisso <hello@emisso.ai>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/emisso-ai/talk-with-your-software"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@emisso/talk": "workspace:*"
+  },
+  "peerDependencies": {
+    "next": ">=14.0.0"
+  },
+  "devDependencies": {
+    "@ai-sdk/anthropic": "^1.0.0",
+    "@types/node": "^22.0.0",
+    "ai": "^4.0.0",
+    "next": "^15.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.7.0"
+  }
+}

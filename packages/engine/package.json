@@ -1,0 +1,73 @@
+{
+  "name": "@emisso/talk",
+  "version": "0.1.0",
+  "description": "Talk with your software — code navigation engine powered by Claude Code + Vercel Sandbox",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "test:run": "vitest --run",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "chat",
+    "chatbot",
+    "code-navigation",
+    "claude",
+    "anthropic",
+    "vercel-sandbox",
+    "sdk",
+    "widget",
+    "talk-with-your-software",
+    "ai",
+    "developer-tools",
+    "typescript"
+  ],
+  "author": "Emisso <hello@emisso.ai>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/emisso-ai/talk-with-your-software"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  },
+  "peerDependencies": {
+    "@ai-sdk/anthropic": ">=1.0.0",
+    "ai": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@ai-sdk/anthropic": {
+      "optional": false
+    },
+    "ai": {
+      "optional": false
+    }
+  },
+  "devDependencies": {
+    "@ai-sdk/anthropic": "^1.0.0",
+    "@types/node": "^22.0.0",
+    "ai": "^4.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}
