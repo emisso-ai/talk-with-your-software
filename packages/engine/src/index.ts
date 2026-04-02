@@ -33,4 +33,10 @@ export { classifyQuery } from "./classifier/query-classifier";
 
 export { createSandbox, cloneRepo, WORKSPACE_DIR } from "./sandbox/sandbox-service";
 
-export { installClaudeCode, executeClaudeCode } from "./providers/claude-provider";
+export {
+  installClaudeCode,
+  executeClaudeCode,
+  buildSystemPrompt,
+  buildRunnerScript,
+  parseClaudeOutput,
+} from "./providers/claude-provider";

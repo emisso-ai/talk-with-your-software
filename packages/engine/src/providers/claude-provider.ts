@@ -78,7 +78,8 @@ const ALLOWED_TOOLS = [
   "Task",
 ].join(",");
 
-function buildSystemPrompt(
+/** @internal Exported for testing */
+export function buildSystemPrompt(
   category: QueryCategory | undefined,
   customSystemPrompt: string | undefined,
 ): string {
@@ -103,7 +104,8 @@ function buildSystemPrompt(
  * Build the runner.mjs script that executes Claude Code in the sandbox.
  * Uses JSON.stringify for safe string embedding (no template literal injection).
  */
-function buildRunnerScript(
+/** @internal Exported for testing */
+export function buildRunnerScript(
   query: string,
   model: string,
   maxTurns: number,
@@ -142,7 +144,8 @@ try {
 `;
 }
 
-function parseClaudeOutput(raw: string, model: string): {
+/** @internal Exported for testing */
+export function parseClaudeOutput(raw: string, model: string): {
   answer: string;
   codeSnippets: CodeSnippet[];
   filesExplored: string[];
